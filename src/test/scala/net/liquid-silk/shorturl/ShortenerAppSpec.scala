@@ -2,7 +2,7 @@ import java.net.InetSocketAddress
 import java.nio.charset.Charset
 
 import com.twitter.finagle.Service
-import com.twitter.finagle.httpx.Request
+import com.twitter.finagle.httpx.{ Request, Response }
 import org.jboss.netty.buffer.ChannelBuffers
 import org.jboss.netty.handler.codec.http.{DefaultHttpRequest, HttpMethod, HttpVersion}
 import org.scalatest._
@@ -12,15 +12,15 @@ import com.twitter.util.Await
 
 import io.finch._
 
-class MainSpec extends FlatSpec with Matchers {
-
-  val api: Service[HttpRequest, HttpResponse] = endpoint.serviceUrls
+class ShortenerAppSpec extends FlatSpec with Matchers {
+  val app: ShortenerApp = new ShortenerApp {}
+  val api: Service[Request, Response] = app.service
   val await = mkAwait(api)
 
   it should "respond with a 201 when posting a valid URL" in {
     val req = POST("/shorturl", "{\"url\": \"http://www.liquid-silk.net\"}")
 
-    //await(req).status shouldBe io.finch.response.Created().status
+    await(req).status shouldBe io.finch.response.Created().status
   }
 
   def POST(path: String, body: String): Request = POST(path, Option(body))
@@ -38,7 +38,7 @@ class MainSpec extends FlatSpec with Matchers {
     request(r)
   }
 
-  def mkAwait(service: Service[HttpRequest, HttpResponse]): Request => HttpResponse =
+  def mkAwait(service: Service[Request, Response]): Request => Response =
     (req) => Await.result(service(req))
 
   def GET(path: String): Request = {

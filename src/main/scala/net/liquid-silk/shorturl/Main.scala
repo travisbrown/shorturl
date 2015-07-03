@@ -19,15 +19,32 @@
 
 package net.liquid_silk.shorturl
 
-import com.typesafe.config.ConfigFactory
+import com.github.tototoshi.base62.Base62
+import com.twitter.finagle.{ Httpx, Service }
+import com.twitter.finagle.httpx.{ Request, Response }
+import com.twitter.finagle.redis.Client
 import com.twitter.util.Await
-import com.twitter.finagle.Httpx
+import com.typesafe.config.ConfigFactory
+import io.finch.response._
+import io.finch.route._
+import org.apache.commons.validator.routines.UrlValidator
 
-object Main extends App {
-  import endpoint._
-
+trait ShortenerApp extends Shortener {
   val conf = ConfigFactory.load()
   val baseDomain = conf.getString("shorturl.baseDomain") // service's domain name, e.g. http://urlShortener.com/
 
-  Await.ready(Httpx.serve(":8081", endpoint.serviceUrls)) // start server
+  val base62 = new Base62
+  val client = Client(":6379")
+  val validator = new UrlValidator(List("http", "https").toArray)
+
+  val service: Service[Request, Response] = (
+    Post / "shorturl" /> shorten :+:
+    Get / string /> convert
+  ).toService
+}
+
+object Main extends App with ShortenerApp {
+  val server = Httpx.serve(":8081", service)
+
+  Await.ready(server) // start server
 }
